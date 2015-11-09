@@ -1,0 +1,1 @@
+avrdude -c usbasp -p m328 -v -e -U flash:w:cardspoofer.hex
