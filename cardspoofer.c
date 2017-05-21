@@ -380,7 +380,7 @@ class ID{
 				writeBit(0);
 			}
 			char duplicateChar = (char)(duplicate%10)+48;
-			char *prec = ";00";
+			char *prec = ";000";
 			char *succ = "?";
 			for(int i=0; i<4; i++){
 				writeChar(prec[i]);
