@@ -17,8 +17,6 @@
 #define lcd_rwPin 4 //PC4
 #define lcd_ePin 5 //PC5
 
-#define encmaxchange 3
-
 int clockSpeed = 500;
 int clockHalf = 0;
 //unsigned long long tick = 0;
@@ -28,6 +26,9 @@ long long encDis_prev = 0;
 int enc_prevstate = 0;
 int startButton = 1;
 int encButton = 1;
+int push_rotate = 0;
+long long pushRotateDisBig = 0;
+long long pushRotateDis = 0;
 
 int columnSums[4];
 
@@ -41,6 +42,7 @@ ISR(PCINT1_vect){ //encoder interrupt
 	int enc_A = (pinState >> enc_pina) & 1; //check encoder input a
 	int enc_B = (pinState >> enc_pinb) & 1; //check encoder input b
 	startButton = (pinState >> 2) & 1;
+	encDis_prev = encDisBig;
 	//note - inverted
 	if ((enc_A == 1)&&(enc_B == 1)){//		0,0 - state 1
 		if (enc_prevstate == 4){
@@ -71,9 +73,14 @@ ISR(PCINT1_vect){ //encoder interrupt
 		}
 		enc_prevstate = 4;
 	}
-	encDis = encDisBig/4;
-	if ((encDis - encDis_prev) > encmaxchange) encDis_prev = encDis;
+	if (((PINB >> encButtonPin) & 1) == 0){
+		push_rotate = 1;
+		pushRotateDisBig = pushRotateDis + (encDisBig - encDis_prev);
+	}
+	encDis = (encDisBig-pushRotateDisBig)/4;
+	pushRotateDis = pushRotateDisBig/4;
 }
+
 /*
 void delayMicroseconds(unsigned long long us){
 	unsigned long long beginTime = tick;
@@ -344,6 +351,7 @@ class ID{
 	public:
 		char* id;
 		char* name;
+		int duplicate;
 		
 		void writeId(){
 			int length = strlen(id);
@@ -370,15 +378,17 @@ class ID{
 			PORTB |= (1<<en_pin); //enable drivers
 			for(int i=0; i<26; i++){
 				writeBit(0);
-			} 
-			char *prec = ";000";
-			char *succ = "1?";
+			}
+			char duplicateChar = (char)(duplicate%10)+48;
+			char *prec = ";00";
+			char *succ = "?";
 			for(int i=0; i<4; i++){
 				writeChar(prec[i]);
 			}
 			for(int i=0; i<7; i++){
 				writeChar(id[i]);
 			}
+			writeChar(duplicateChar);
 			for(int i=0; i<2; i++){
 				writeChar(succ[i]);
 			}
@@ -418,40 +428,72 @@ char numToChar(unsigned int n){
 }
 
 void interface(){
+	//bob 2046637
 	ID andrew;
 	andrew.id="1867016";
 	andrew.name="Andrew";
+	andrew.duplicate = 1;
 	
+	ID ez;
+	ez.id="1855865";
+	ez.name="EZ";
+	ez.duplicate = 3;
+	
+	ID morgan;
+	morgan.id="5831853";
+	morgan.name="Morgan";
+	morgan.duplicate = 1;
+	
+	ID bryce;
+	bryce.id="1852995";
+	bryce.name="Bryce";
+	bryce.duplicate = 1;
+		
 	ID maxh;
 	maxh.id="1873138";
 	maxh.name="MaxH-R/S";
+	maxh.duplicate = 1;
 	
 	ID justin;
 	justin.id="1708913";
 	justin.name="Justin";
+	justin.duplicate = 1;
 	
 	ID roxy;
 	roxy.id="1867202";
 	roxy.name="Roxy-S/H";
+	roxy.duplicate = 1;
+	
+	ID bp;
+	bp.id="2046637";
+	bp.name="bp";
+	bp.duplicate = 1;
 	
 	ID ethan;
 	ethan.id="1859419";
 	ethan.name="Ethan";
+	ethan.duplicate = 1;
 	
 	ID lauren;
 	lauren.id="1856179";
 	lauren.name="Lauren";
+	lauren.duplicate = 1;
 	
 	ID kiona;
 	kiona.id="1857660";
 	kiona.name="Kiona";
+	kiona.duplicate = 1;
 
-	ID idList[] = {ethan, maxh, justin, lauren, roxy, kiona, andrew};
-	int length=7;
+	ID idList[] = {ethan, maxh, justin, bp, morgan, lauren, roxy, kiona, andrew, bryce, ez};
+	int length=11;
 	ID selected;
+	
+	int prev_encButton = 1;
 	
 	while(1){
 		int selectedIndex;
+		int cardNum = pushRotateDis;
+		
 		if (encDis<=0){
 			selectedIndex=(encDis%length)+length-1;
 		}else{
@@ -461,14 +503,22 @@ void interface(){
 		
 		lcd_command(0x01); //home
 		_delay_us(700);
+
+		
 		selected.writeName();
 		lcd_command(0xc0); //nextLine
 		_delay_us(700);
 		selected.writeId();
 		encButton = (PINB >> encButtonPin) & 1;
-		if (encButton==0){
-			
+		if ((encButton == 1) && (prev_encButton == 0)){
+				if (push_rotate == 1){
+					push_rotate = 0;
+					pushRotateDis = 0;
+				}else{
+					//released enc button
+				}
 		}
+		prev_encButton = encButton;
 		if(startButton==0){
 			lcd_command(0x01); //clear screen
 			selected.spoof();
